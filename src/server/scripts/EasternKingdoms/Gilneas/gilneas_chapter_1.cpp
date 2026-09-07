@@ -16,6 +16,7 @@
 */
 
 #include "gilneas.h"
+#include "Containers.h"
 #include "ScriptMgr.h"
 #include "CombatAI.h"
 #include "MotionMaster.h"
@@ -24,6 +25,7 @@
 #include "PassiveAI.h"
 #include "PhasingHandler.h"
 #include "ScriptedCreature.h"
+#include "SpellAuraEffects.h"
 #include "SpellInfo.h"
 #include "SpellScript.h"
 #include "TemporarySummon.h"
@@ -133,124 +135,147 @@ private:
 ## Quest 14154 - By the Skin of his Teeth
 ######*/
 
-enum WorgenRunt
+enum ByTheSkinOfHisTeeth
 {
-    EVENT_JUMP_TO_PRISON            = 1,
-    EVENT_AGGRO_PLAYER              = 2,
-    EVENT_FORCE_DESPAWN             = 3,
+    QUEST_BY_THE_SKIN_OF_HIS_TEETH  = 14154,
 
-    PHASE_ROOF                      = 0,
-    PHASE_COMBAT                    = 1,
-
-    WORGEN_ID_ROOF_1                = 0,
-    WORGEN_ID_ROOF_2                = 1,
-    WORGEN_ID_ROOF_3                = 2,
-    WORGEN_ID_ROOF_4                = 3,
-    WORGEN_ID_ROOF_5                = 4,
-    WORGEN_ID_ROOF_6                = 5,
-    WORGEN_ID_ROOF_7                = 6,
-
-    WORGEN_ID_CATHEDRAL_1           = 7,
-    WORGEN_ID_CATHEDRAL_2           = 8,
-    WORGEN_ID_CATHEDRAL_3           = 9,
-    WORGEN_ID_CATHEDRAL_4           = 10,
-    WORGEN_ID_CATHEDRAL_5           = 11,
-    WORGEN_ID_CATHEDRAL_6           = 12,
-    WORGEN_ID_CATHEDRAL_7           = 13,
-    WORGEN_ID_CATHEDRAL_8           = 14,
-    WORGEN_ID_CATHEDRAL_9           = 15,
+    DATA_QUEST_OWNER                = 1,
 
     NPC_WORGEN_RUNT_SPELL           = 35188,
+    NPC_WORGEN_ALPHA                = 35167,
+    NPC_WORGEN_RUNT                 = 35456,
+    NPC_BLOODFANG_BLOODLETTER       = 35457,
+
+    SPELL_SUMMON_RAVENOUS_WORGEN_1  = 66836,
+    SPELL_SUMMON_RAVENOUS_WORGEN_2  = 66925,
+    SPELL_GILNEAS_PRISON_FORCECAST  = 66914,
+    SPELL_GILNEAS_PRISON_PERIODIC   = 66894,
+    SPELL_BY_THE_SKIN_OF_HIS_TEETH  = 68218,
+    SPELL_LEFT_HOOK                 = 67825,
+    SPELL_TAUNT                     = 37548,
+    SPELL_ENRAGE                    = 8599,
+
+    EVENT_JUMP_TO_PRISON            = 1,
+    EVENT_AGGRO_PLAYER,
+    EVENT_CHECK_OWNER,
+    EVENT_FORCE_DESPAWN,
+
+    EVENT_TAUNT_ATTACKERS           = 1,
+    EVENT_LEFT_HOOK,
+
+    POINT_ROUTE_END                 = 99,
+    POINT_SPELL_SUMMON_LAND         = 100,
+    POINT_PRISON_LAND               = 101,
+
+    MAX_WORGEN_ROUTES               = 15,
+    FIRST_CATHEDRAL_ROUTE           = 7,
+    MAX_ACTIVE_WORGEN_PER_PLAYER    = 6
 };
+
+struct WorgenRoute
+{
+    Position const* Path;
+    uint32 Size;
+};
+
+std::array<WorgenRoute, MAX_WORGEN_ROUTES> const WorgenRoutes =
+{{
+    { worgenRuntHousePath1, runtHousePathSize1 },
+    { worgenRuntHousePath2, runtHousePathSize2 },
+    { worgenRuntHousePath3, runtHousePathSize3 },
+    { worgenRuntHousePath4, runtHousePathSize4 },
+    { worgenRuntHousePath5, runtHousePathSize5 },
+    { worgenRuntHousePath6, runtHousePathSize6 },
+    { worgenRuntHousePath7, runtHousePathSize7 },
+    { worgenRuntCathedralPath1, runtCathedralPathSize1 },
+    { worgenRuntCathedralPath2, runtCathedralPathSize2 },
+    { worgenRuntCathedralPath3, runtCathedralPathSize3 },
+    { worgenRuntCathedralPath4, runtCathedralPathSize4 },
+    { worgenRuntCathedralPath5, runtCathedralPathSize5 },
+    { worgenRuntCathedralPath6, runtCathedralPathSize6 },
+    { worgenRuntCathedralPath7, runtCathedralPathSize7 },
+    { worgenRuntCathedralPath8, runtCathedralPathSize8 }
+}};
+
+std::array<Position, MAX_WORGEN_ROUTES> const WorgenSpawnPositions =
+{{
+    { -1729.345f, 1526.495f, 55.47962f, 6.188943f },
+    { -1709.63f, 1527.464f, 56.86086f, 3.258752f },
+    { -1717.75f, 1513.727f, 55.47941f, 4.704845f },
+    { -1724.719f, 1526.731f, 55.66177f, 6.138319f },
+    { -1713.974f, 1526.625f, 56.21981f, 3.306195f },
+    { -1718.104f, 1524.071f, 55.81641f, 4.709816f },
+    { -1718.262f, 1518.557f, 55.55954f, 4.726997f },
+    { -1618.054f, 1489.644f, 68.45153f, 3.593639f },
+    { -1625.62f, 1487.033f, 71.27762f, 3.531424f },
+    { -1638.569f, 1489.736f, 68.55273f, 4.548815f },
+    { -1630.399f, 1481.66f, 71.41516f, 3.484555f },
+    { -1622.424f, 1483.882f, 67.67381f, 3.404875f },
+    { -1634.344f, 1491.3f, 70.10101f, 4.6248f },
+    { -1631.979f, 1491.585f, 71.11481f, 4.032866f },
+    { -1627.273f, 1499.689f, 68.89395f, 4.251452f }
+}};
 
 static Position const RuntSpellSummonJumpPos = { -1671.915f, 1446.734f, 52.28712f };
 
 struct npc_worgen_runt : public ScriptedAI
 {
-    npc_worgen_runt(Creature* creature) : ScriptedAI(creature), _worgenID(0), _wayPointCounter(0), _jumped(false) { }
-
-    void JustEngagedWith(Unit* /*who*/) override
-    {
-        _events.SetPhase(PHASE_COMBAT);
-    }
+    npc_worgen_runt(Creature* creature) : ScriptedAI(creature) { }
 
     void IsSummonedBy(Unit* summoner) override
     {
+        std::list<Creature*> worgen;
+        for (uint32 entry : { NPC_WORGEN_RUNT_SPELL, NPC_WORGEN_ALPHA, NPC_WORGEN_RUNT, NPC_BLOODFANG_BLOODLETTER })
+            summoner->GetCreatureListWithEntryInGrid(worgen, entry, 150.0f);
+
+        uint32 activeWorgen = 0;
+        for (Creature* attacker : worgen)
+            if (attacker != me && attacker->IsAlive() && attacker->IsAIEnabled()
+                && attacker->AI()->GetGUID(DATA_QUEST_OWNER) == summoner->GetGUID())
+                ++activeWorgen;
+
+        if (activeWorgen >= MAX_ACTIVE_WORGEN_PER_PLAYER)
+        {
+            me->DespawnOrUnsummon();
+            return;
+        }
+
         me->setActive(true); // we are in a phased and cut off map so we're fine to use that here
-        _events.SetPhase(PHASE_ROOF);
-        _events.ScheduleEvent(EVENT_FORCE_DESPAWN, 70s, 0, PHASE_ROOF);
+        me->SetReactState(REACT_PASSIVE);
         _playerGuid = summoner->GetGUID();
-        if (me->GetEntry() == NPC_WORGEN_RUNT_SPELL)
-            me->GetMotionMaster()->MoveJump(RuntSpellSummonJumpPos, 16.0f, 4.371286f);
+        _events.ScheduleEvent(EVENT_CHECK_OWNER, 1s);
+        _events.ScheduleEvent(EVENT_FORCE_DESPAWN, 70s);
+
+        uint32 summonSpell = me->GetUInt32Value(UNIT_CREATED_BY_SPELL);
+        if (summonSpell == SPELL_SUMMON_RAVENOUS_WORGEN_1 || summonSpell == SPELL_SUMMON_RAVENOUS_WORGEN_2)
+        {
+            me->GetMotionMaster()->MoveJump(RuntSpellSummonJumpPos, 16.0f, 4.371286f, POINT_SPELL_SUMMON_LAND);
+            me->SetHomePosition(RuntSpellSummonJumpPos);
+        }
     }
 
     void DoAction(int32 action) override
     {
-        _worgenID = action;
-        switch (_worgenID) // ugly as fuck but needed for individual controls
+        if (_playerGuid.IsEmpty() || action < 0 || action >= MAX_WORGEN_ROUTES)
+            return;
+
+        _routeId = uint8(action);
+        WorgenRoute const& route = WorgenRoutes[_routeId];
+        me->GetMotionMaster()->MoveSmoothPath(POINT_ROUTE_END, route.Path, route.Size - 1);
+    }
+
+    ObjectGuid GetGUID(int32 data) const override
+    {
+        return data == DATA_QUEST_OWNER ? _playerGuid : ObjectGuid::Empty;
+    }
+
+    void DamageTaken(Unit* /*attacker*/, uint32& damage) override
+    {
+        if (me->GetEntry() == NPC_WORGEN_ALPHA && !_enraged && me->HealthBelowPctDamaged(30, damage))
         {
-            // House roof cases
-            case WORGEN_ID_ROOF_1:
-                _wayPointCounter = runtHousePathSize1;
-                me->GetMotionMaster()->MoveSmoothPath(runtHousePathSize1, worgenRuntHousePath1, runtHousePathSize1);
-                break;
-            case WORGEN_ID_ROOF_2:
-                _wayPointCounter = runtHousePathSize2;
-                me->GetMotionMaster()->MoveSmoothPath(runtHousePathSize2, worgenRuntHousePath2, runtHousePathSize2);
-                break;
-            case WORGEN_ID_ROOF_3:
-                _wayPointCounter = runtHousePathSize3;
-                me->GetMotionMaster()->MoveSmoothPath(runtHousePathSize3, worgenRuntHousePath3, runtHousePathSize3);
-                break;
-            case WORGEN_ID_ROOF_4:
-                _wayPointCounter = runtHousePathSize4;
-                me->GetMotionMaster()->MoveSmoothPath(runtHousePathSize4, worgenRuntHousePath4, runtHousePathSize4);
-                break;
-            case WORGEN_ID_ROOF_5:
-                _wayPointCounter = runtHousePathSize5;
-                me->GetMotionMaster()->MoveSmoothPath(runtHousePathSize5, worgenRuntHousePath5, runtHousePathSize5);
-                break;
-            case WORGEN_ID_ROOF_6:
-                _wayPointCounter = runtHousePathSize6;
-                me->GetMotionMaster()->MoveSmoothPath(runtHousePathSize6, worgenRuntHousePath6, runtHousePathSize6);
-                break;
-            case WORGEN_ID_ROOF_7:
-                _wayPointCounter = runtHousePathSize7;
-                me->GetMotionMaster()->MoveSmoothPath(runtHousePathSize7, worgenRuntHousePath7, runtHousePathSize7);
-                break;
-                // Cathedral cases
-            case WORGEN_ID_CATHEDRAL_1:
-                _wayPointCounter = runtCathedralPathSize1;
-                me->GetMotionMaster()->MoveSmoothPath(runtCathedralPathSize1, worgenRuntCathedralPath1, runtCathedralPathSize1);
-                break;
-            case WORGEN_ID_CATHEDRAL_2:
-                _wayPointCounter = runtCathedralPathSize2;
-                me->GetMotionMaster()->MoveSmoothPath(runtCathedralPathSize2, worgenRuntCathedralPath1, runtCathedralPathSize2);
-                break;
-            case WORGEN_ID_CATHEDRAL_3:
-                _wayPointCounter = runtCathedralPathSize3;
-                me->GetMotionMaster()->MoveSmoothPath(runtCathedralPathSize3, worgenRuntCathedralPath1, runtCathedralPathSize3);
-                break;
-            case WORGEN_ID_CATHEDRAL_4:
-                _wayPointCounter = runtCathedralPathSize4;
-                me->GetMotionMaster()->MoveSmoothPath(runtCathedralPathSize4, worgenRuntCathedralPath1, runtCathedralPathSize4);
-                break;
-            case WORGEN_ID_CATHEDRAL_5:
-                _wayPointCounter = runtCathedralPathSize5;
-                me->GetMotionMaster()->MoveSmoothPath(runtCathedralPathSize5, worgenRuntCathedralPath1, runtCathedralPathSize5);
-                break;
-            case WORGEN_ID_CATHEDRAL_6:
-                _wayPointCounter = runtCathedralPathSize6;
-                me->GetMotionMaster()->MoveSmoothPath(runtCathedralPathSize6, worgenRuntCathedralPath1, runtCathedralPathSize6);
-                break;
-            case WORGEN_ID_CATHEDRAL_7:
-                _wayPointCounter = runtCathedralPathSize7;
-                me->GetMotionMaster()->MoveSmoothPath(runtCathedralPathSize7, worgenRuntCathedralPath1, runtCathedralPathSize7);
-                break;
-            case WORGEN_ID_CATHEDRAL_8:
-                _wayPointCounter = runtCathedralPathSize8;
-                me->GetMotionMaster()->MoveSmoothPath(runtCathedralPathSize8, worgenRuntCathedralPath1, runtCathedralPathSize8);
-                break;
+            _enraged = true;
+            DoCastSelf(SPELL_ENRAGE, true);
+            Talk(0);
         }
     }
 
@@ -261,18 +286,30 @@ struct npc_worgen_runt : public ScriptedAI
 
     void MovementInform(uint32 type, uint32 pointId) override
     {
-        if (type == EFFECT_MOTION_TYPE && pointId == _wayPointCounter && !_jumped)
+        if (type != EFFECT_MOTION_TYPE)
+            return;
+
+        if (pointId == POINT_SPELL_SUMMON_LAND && !_landed)
+        {
+            _landed = true;
+            _events.ScheduleEvent(EVENT_AGGRO_PLAYER, 1ms);
+            return;
+        }
+
+        if (pointId == POINT_ROUTE_END && !_jumped && _routeId < MAX_WORGEN_ROUTES)
         {
             _jumped = true;
             _events.ScheduleEvent(EVENT_JUMP_TO_PRISON, 1ms);
+        }
+        else if (pointId == POINT_PRISON_LAND && _jumped && !_landed)
+        {
+            _landed = true;
+            _events.ScheduleEvent(EVENT_AGGRO_PLAYER, 1ms);
         }
     }
 
     void UpdateAI(uint32 diff) override
     {
-        if (!UpdateVictim() && !_events.IsInPhase(PHASE_ROOF))
-            return;
-
         _events.Update(diff);
 
         while (uint32 eventId = _events.ExecuteEvent())
@@ -283,28 +320,169 @@ struct npc_worgen_runt : public ScriptedAI
                     me->DespawnOrUnsummon();
                     break;
                 case EVENT_JUMP_TO_PRISON:
-                    me->GetMotionMaster()->MoveJump(worgenRuntJumpPos[_worgenID], 16.0f, _worgenID < WORGEN_ID_CATHEDRAL_1 ? 19.2911f : frand(3.945607f, 4.852813f));
-                    me->SetHomePosition(worgenRuntJumpPos[_worgenID]);
-                    _events.ScheduleEvent(EVENT_AGGRO_PLAYER, 2s);
+                    me->GetMotionMaster()->MoveJump(worgenRuntJumpPos[_routeId], 16.0f, _routeId < FIRST_CATHEDRAL_ROUTE ? 19.2911f : frand(3.945607f, 4.852813f), POINT_PRISON_LAND);
+                    me->SetHomePosition(worgenRuntJumpPos[_routeId]);
                     break;
                 case EVENT_AGGRO_PLAYER:
-                    if (Unit* player = ObjectAccessor::GetPlayer(*me, _playerGuid))
-                        if (me->IsInDist(player->GetPosition(), 100.0f))
+                    if (Player* player = ObjectAccessor::GetPlayer(*me, _playerGuid))
+                        if (player->IsAlive() && player->HasAura(SPELL_BY_THE_SKIN_OF_HIS_TEETH) && me->IsWithinDistInMap(player, 150.0f))
+                        {
+                            me->SetReactState(REACT_AGGRESSIVE);
                             AttackStart(player);
+                        }
+                    break;
+                case EVENT_CHECK_OWNER:
+                    if (Player* player = ObjectAccessor::GetPlayer(*me, _playerGuid))
+                    {
+                        if (!player->IsAlive() || !player->HasAura(SPELL_BY_THE_SKIN_OF_HIS_TEETH) || !me->IsWithinDistInMap(player, 150.0f))
+                            me->DespawnOrUnsummon();
+                        else
+                            _events.ScheduleEvent(EVENT_CHECK_OWNER, 1s);
+                    }
+                    else
+                        me->DespawnOrUnsummon();
                     break;
                 default:
                     break;
             }
         }
 
-        DoMeleeAttackIfReady();
+        if (_landed && UpdateVictim())
+            DoMeleeAttackIfReady();
     }
 private:
-    uint32 _worgenID;
-    uint32 _wayPointCounter;
-    bool _jumped;
+    uint8 _routeId = MAX_WORGEN_ROUTES;
+    bool _jumped = false;
+    bool _landed = false;
+    bool _enraged = false;
     ObjectGuid _playerGuid;
     EventMap _events;
+};
+
+struct npc_lord_darius_crowley : public ScriptedAI
+{
+    npc_lord_darius_crowley(Creature* creature) : ScriptedAI(creature)
+    {
+        SetCombatMovement(false);
+    }
+
+    void Reset() override
+    {
+        _events.Reset();
+        _events.ScheduleEvent(EVENT_TAUNT_ATTACKERS, 2s);
+    }
+
+    void QuestAccept(Player* player, Quest const* quest) override
+    {
+        if (quest->GetQuestId() == QUEST_BY_THE_SKIN_OF_HIS_TEETH)
+            me->CastSpell(player, SPELL_GILNEAS_PRISON_FORCECAST, true);
+    }
+
+    void JustEngagedWith(Unit* /*who*/) override
+    {
+        _events.ScheduleEvent(EVENT_LEFT_HOOK, 6s);
+    }
+
+    void UpdateAI(uint32 diff) override
+    {
+        _events.Update(diff);
+
+        while (uint32 eventId = _events.ExecuteEvent())
+        {
+            switch (eventId)
+            {
+                case EVENT_TAUNT_ATTACKERS:
+                    TauntAttackers();
+                    _events.ScheduleEvent(EVENT_TAUNT_ATTACKERS, 3s);
+                    break;
+                case EVENT_LEFT_HOOK:
+                    if (me->GetVictim())
+                        DoCastVictim(SPELL_LEFT_HOOK);
+                    _events.ScheduleEvent(EVENT_LEFT_HOOK, 15s + Milliseconds(urand(0, 2000)));
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        if (!UpdateVictim())
+            return;
+
+        DoMeleeAttackIfReady();
+    }
+
+private:
+    void TauntAttackers()
+    {
+        std::list<Creature*> attackers;
+        for (uint32 entry : { NPC_WORGEN_RUNT_SPELL, NPC_WORGEN_ALPHA, NPC_WORGEN_RUNT, NPC_BLOODFANG_BLOODLETTER })
+            me->GetCreatureListWithEntryInGrid(attackers, entry, 100.0f);
+
+        for (Creature* attacker : attackers)
+        {
+            if (!attacker->IsAIEnabled())
+                continue;
+
+            if (Player* owner = ObjectAccessor::GetPlayer(*me, attacker->AI()->GetGUID(DATA_QUEST_OWNER)))
+                if (owner->IsAlive() && owner->HasAura(SPELL_BY_THE_SKIN_OF_HIS_TEETH) && attacker->GetVictim() == owner)
+                    me->CastSpell(attacker, SPELL_TAUNT, true);
+        }
+    }
+
+    EventMap _events;
+};
+
+class spell_gen_gilneas_prison_periodic_dummy : public SpellScript
+{
+    bool Validate(SpellInfo const* /*spellInfo*/) override
+    {
+        return ValidateSpellInfo(
+        {
+            SPELL_SUMMON_RAVENOUS_WORGEN_1,
+            SPELL_SUMMON_RAVENOUS_WORGEN_2,
+            SPELL_GILNEAS_PRISON_FORCECAST,
+            SPELL_GILNEAS_PRISON_PERIODIC,
+            SPELL_BY_THE_SKIN_OF_HIS_TEETH
+        });
+    }
+
+    void HandleDummy(SpellEffIndex /*effIndex*/)
+    {
+        Player* player = GetHitPlayer();
+        if (!player)
+            return;
+
+        player->CastSpell(player, RAND(SPELL_SUMMON_RAVENOUS_WORGEN_1, SPELL_SUMMON_RAVENOUS_WORGEN_2), true);
+
+        std::array<uint8, MAX_WORGEN_ROUTES> routes;
+        for (uint8 routeId = 0; routeId < MAX_WORGEN_ROUTES; ++routeId)
+            routes[routeId] = routeId;
+        Trinity::Containers::RandomShuffle(routes);
+
+        bool summonAlphas = false;
+        if (Aura* aura = player->GetAura(SPELL_GILNEAS_PRISON_PERIODIC))
+            summonAlphas = aura->GetDuration() <= 30 * IN_MILLISECONDS;
+
+        if (summonAlphas)
+            SummonAttacker(player, NPC_WORGEN_ALPHA, routes[0]);
+        else
+        {
+            SummonAttacker(player, NPC_WORGEN_RUNT, routes[0]);
+            SummonAttacker(player, NPC_WORGEN_RUNT, routes[1]);
+            SummonAttacker(player, NPC_BLOODFANG_BLOODLETTER, routes[2]);
+        }
+    }
+
+    static void SummonAttacker(Unit* summoner, uint32 entry, uint8 routeId)
+    {
+        if (Creature* attacker = summoner->SummonCreature(entry, WorgenSpawnPositions[routeId]))
+            attacker->AI()->DoAction(routeId);
+    }
+
+    void Register() override
+    {
+        OnEffectHitTarget.Register(&spell_gen_gilneas_prison_periodic_dummy::HandleDummy, EFFECT_0, SPELL_EFFECT_DUMMY);
+    }
 };
 
 /*######
@@ -675,6 +853,8 @@ void AddSC_gilneas_chapter_1()
     using namespace Gilneas::Chapter1;
     RegisterCreatureAI(npc_frightened_citizen);
     RegisterCreatureAI(npc_worgen_runt);
+    RegisterCreatureAI(npc_lord_darius_crowley);
+    RegisterSpellScript(spell_gen_gilneas_prison_periodic_dummy);
     RegisterCreatureAI(npc_josiah_avery);
     RegisterCreatureAI(npc_greymanes_horse);
     RegisterCreatureAI(npc_crowleys_horse);
