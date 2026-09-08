@@ -854,9 +854,9 @@ void AddSC_gilneas_chapter_1()
     RegisterCreatureAI(npc_frightened_citizen);
     RegisterCreatureAI(npc_worgen_runt);
     RegisterCreatureAI(npc_lord_darius_crowley);
-    RegisterSpellScript(spell_gen_gilneas_prison_periodic_dummy);
     RegisterCreatureAI(npc_josiah_avery);
     RegisterCreatureAI(npc_greymanes_horse);
     RegisterCreatureAI(npc_crowleys_horse);
     RegisterCreatureAI(npc_gilnean_crow);
+    RegisterSpellScript(spell_gen_gilneas_prison_periodic_dummy);
 }
