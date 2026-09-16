@@ -771,7 +771,7 @@ void Creature::Update(uint32 diff)
         {
             Unit::Update(diff);
             // deathstate changed on spells update, prevent problems
-            if (m_deathState != CORPSE)
+            if (!IsInWorld() || m_deathState != CORPSE)
                 break;
 
             if (IsEngaged())
@@ -800,9 +800,9 @@ void Creature::Update(uint32 diff)
         {
             Unit::Update(diff);
 
-            // creature can be dead after Unit::Update call
+            // creature can be removed or dead after Unit::Update call
             // CORPSE/DEAD state will processed at next tick (in other case death timer will be updated unexpectedly)
-            if (!IsAlive())
+            if (!IsInWorld() || !IsAlive())
                 break;
 
             if (_spellFocusInfo.ReacquiringTargetDelay)
@@ -827,9 +827,9 @@ void Creature::Update(uint32 diff)
             // do not allow the AI to be changed during update
             Unit::AIUpdateTick(diff);
 
-            // creature can be dead after UpdateAI call
+            // creature can be removed or dead after UpdateAI call
             // CORPSE/DEAD state will processed at next tick (in other case death timer will be updated unexpectedly)
-            if (!IsAlive())
+            if (!IsInWorld() || !IsAlive())
                 break;
 
             _powerUpdateTimer -= diff;
